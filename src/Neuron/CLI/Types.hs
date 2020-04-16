@@ -1,4 +1,5 @@
 {-# LANGUAGE ApplicativeDo #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -12,6 +13,7 @@ module Neuron.CLI.Types
     SearchBy (..),
     SearchCommand (..),
     RibConfig (..),
+    ResultFormat (..),
     commandParser,
   )
 where
@@ -42,6 +44,11 @@ data SearchBy
   | SearchByContent
   deriving (Eq, Show)
 
+data ResultFormat
+  = JsonFormat
+  | ListFormat
+  deriving (Eq, Show)
+
 data Command
   = -- | Create a new zettel file
     New NewCommand
@@ -50,7 +57,7 @@ data Command
   | -- | Search a zettel by title
     Search SearchCommand
   | -- | Run a query against the Zettelkasten
-    Query [Z.Query]
+    Query ResultFormat [Z.Query]
   | -- | Delegate to Rib's command parser
     Rib RibConfig
   deriving (Eq, Show)
@@ -91,10 +98,12 @@ commandParser defaultNotesDir = do
       return (New NewCommand {..})
     openCommand =
       pure Open
-    queryCommand =
-      fmap Query $
+    queryCommand = do
+      fmt <- option formatReader (long "format" <> short 'f')
+      qs <-
         many (Z.ByTag <$> option str (long "tag" <> short 't'))
           <|> option uriReader (long "uri" <> short 'u')
+      pure $ Query fmt qs
     searchCommand = do
       searchBy <-
         bool SearchByTitle SearchByContent
@@ -116,3 +125,7 @@ commandParser defaultNotesDir = do
       pure RibConfig {..}
     uriReader =
       eitherReader $ bimap displayException Z.parseQuery . URI.mkURI . toText
+    formatReader = eitherReader $ \case
+      "json" -> Right JsonFormat
+      "list" -> Right ListFormat
+      _ -> Left "Bad format"

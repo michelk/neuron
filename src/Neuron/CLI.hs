@@ -14,9 +14,12 @@ import Development.Shake (Action)
 import Neuron.CLI.New (newZettelFile)
 import Neuron.CLI.Rib
 import Neuron.CLI.Search (runSearch)
+import Neuron.CLI.Types
 import qualified Neuron.Version as Version
+import Neuron.Zettelkasten.ID (zettelIDText)
 import qualified Neuron.Zettelkasten.Query as Z
 import qualified Neuron.Zettelkasten.Store as Z
+import Neuron.Zettelkasten.Zettel (Zettel (..))
 import Options.Applicative
 import Relude
 import qualified Rib
@@ -53,10 +56,15 @@ runWith act App {..} = do
         putStrLn indexHtmlPath
         let opener = if os == "darwin" then "open" else "xdg-open"
         liftIO $ executeFile opener True [indexHtmlPath] Nothing
-    Query queries -> do
+    Query fmt queries ->
       runRibOnceQuietly notesDir $ do
         store <- Z.mkZettelStore =<< Rib.forEvery ["*.md"] pure
-        let matches = Z.runQuery store queries
-        putLTextLn $ Aeson.encodeToLazyText $ matches
+        let matches@Z.QueryResults {..} = Z.runQuery store queries
+        case fmt of
+          JsonFormat ->
+            putLTextLn $ Aeson.encodeToLazyText matches
+          ListFormat ->
+            forM_ resultZettels $ \Zettel {..} ->
+              putTextLn $ zettelIDText zettelID <> " " <> zettelTitle
     Search searchCmd ->
       runSearch notesDir searchCmd
