@@ -99,7 +99,7 @@ commandParser defaultNotesDir = do
     openCommand =
       pure Open
     queryCommand = do
-      fmt <- option formatReader (long "format" <> short 'f')
+      fmt <- option formatReader (long "format" <> short 'f' <> value JsonFormat)
       qs <-
         many (Z.ByTag <$> option str (long "tag" <> short 't'))
           <|> option uriReader (long "uri" <> short 'u')
